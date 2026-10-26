@@ -1,0 +1,2168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>YatsuNekoBBS(p2p)</title>
+ <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+ <style>
+  :root {
+   --bg-color: #f0f2f5;
+   --text-color: #333333;
+   --card-bg: #ffffff;
+   --border-color: #ccc;
+   --dashed-border: #e0e0e0;
+   --header-color: #0056b3;
+   --owner-color: #0056b3;
+   --owner-bg-text: #004085;
+   --log-bg: #fafafa;
+   --sub-text: #666666;
+   --btn-bg: #0056b3;
+   --btn-hover: #004085;
+   --item-bg: #f8f9fa;
+   --input-bg: #ffffff;
+   --input-text: #333333;
+  }
+  [data-theme="dark"] {
+   --bg-color: #121212;
+   --text-color: #e0e0e0;
+   --card-bg: #1e1e1e;
+   --border-color: #444444;
+   --dashed-border: #333333;
+   --header-color: #4da3ff;
+   --owner-color: #64b5f6;
+   --owner-bg-text: #90caf9;
+   --log-bg: #262626;
+   --sub-text: #aaaaaa;
+   --btn-bg: #0056b3;
+   --btn-hover: #1976d2;
+   --item-bg: #2a2a2a;
+   --input-bg: #2d2d2d;
+   --input-text: #ffffff;
+  }
+  * {
+   box-sizing: border-box;
+  }
+  body {
+   font-family: sans-serif;
+   max-width: 650px;
+   margin: 20px auto;
+   padding: 0 10px;
+   background: var(--bg-color);
+   color: var(--text-color);
+   transition:
+    background 0.3s,
+    color 0.3s;
+  }
+  .top-bar {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   border-bottom: 2px solid var(--header-color);
+   padding-bottom: 5px;
+   margin-bottom: 15px;
+  }
+  h1 {
+   font-size: 1.4rem;
+   margin: 0;
+   color: var(--header-color);
+  }
+  .theme-toggle-btn {
+   background: none;
+   border: 1px solid var(--border-color);
+   color: var(--text-color);
+   padding: 4px 10px;
+   border-radius: 20px;
+   cursor: pointer;
+   font-size: 0.85rem;
+  }
+  #setup,
+  #board {
+   background: var(--card-bg);
+   padding: 15px;
+   border-radius: 8px;
+   box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.2);
+   margin-bottom: 15px;
+  }
+  #messages {
+   border: 1px solid var(--border-color);
+   height: 380px;
+   overflow-y: auto;
+   padding: 12px;
+   background: var(--log-bg);
+   border-radius: 4px;
+  }
+  .res {
+   margin-bottom: 12px;
+   line-height: 1.5;
+   word-break: break-all;
+   border-bottom:
+    1px dashed var(--dashed-border);
+   padding-bottom: 8px;
+  }
+  .res-header {
+   font-size: 0.85rem;
+   color: var(--sub-text);
+   margin-bottom: 4px;
+   display: flex;
+   justify-content: space-between;
+   gap: 8px;
+  }
+  .res-num {
+   font-weight: bold;
+   color: var(--text-color);
+  }
+  .res.owner .res-num,
+  .res.owner .res-author {
+   color: var(--owner-color);
+   font-weight: bold;
+  }
+  .res-body {
+   font-size: 0.95rem;
+   white-space: pre-wrap;
+   margin-left: 5px;
+  }
+  .res.owner .res-body {
+   color: var(--owner-bg-text);
+  }
+  .mute-btn {
+   flex-shrink: 0;
+   font-size: 0.75rem;
+   color: #dc3545;
+   background: none;
+   border:
+    1px solid #dc3545;
+   border-radius: 3px;
+   cursor: pointer;
+   padding: 1px 4px;
+  }
+  .mute-btn:hover {
+   background: #dc3545;
+   color: #fff;
+  }
+  .input-group {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+   margin-top: 10px;
+  }
+  input[type="text"],
+  textarea {
+   background: var(--input-bg);
+   color: var(--input-text);
+   border:
+    1px solid var(--border-color);
+   padding: 8px;
+   border-radius: 4px;
+   font-family: inherit;
+   box-sizing: border-box;
+  }
+  input[type="text"] {
+   width: 100%;
+  }
+  textarea {
+   width: 100%;
+   height: 60px;
+   resize: vertical;
+  }
+  button {
+   padding: 8px 15px;
+   background: var(--btn-bg);
+   color: white;
+   border: none;
+   border-radius: 4px;
+   cursor: pointer;
+   font-weight: bold;
+  }
+  button:hover {
+   background: var(--btn-hover);
+  }
+  button:disabled {
+   background: #6c757d;
+   cursor: not-allowed;
+  }
+  .thread-list {
+   margin-top: 15px;
+  }
+  .thread-item {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 10px;
+   padding: 10px;
+   background: var(--item-bg);
+   border:
+    1px solid var(--border-color);
+   margin-bottom: 8px;
+   border-radius: 4px;
+  }
+  .thread-item .title {
+   font-weight: bold;
+   font-size: 1rem;
+   color: var(--text-color);
+   word-break: break-word;
+  }
+  .scan-status {
+   font-size: 0.85rem;
+   color: var(--sub-text);
+   margin-bottom: 8px;
+   min-height: 1.2em;
+  }
+  .board-header {
+   font-size: 1.1rem;
+   font-weight: bold;
+   margin-bottom: 10px;
+   padding-bottom: 5px;
+   border-bottom:
+    1px solid var(--border-color);
+  }
+  #connection-status {
+   font-size: 0.75rem;
+   color: var(--sub-text);
+   margin-bottom: 10px;
+  }
+  @media (max-width: 500px) {
+   body {
+    margin-top: 10px;
+   }
+   .top-bar {
+    align-items: flex-start;
+    gap: 10px;
+   }
+   h1 {
+    font-size: 1.2rem;
+   }
+   .thread-item {
+    align-items: stretch;
+    flex-direction: column;
+   }
+   .thread-item button {
+    width: 100%;
+   }
+  }
+ </style>
+</head>
+<body>
+ <div class="top-bar">
+  <h1>P2P 掲示板</h1>
+  <button
+   class="theme-toggle-btn"
+   onclick="toggleTheme()"
+   id="theme-btn"
+  >
+   🌙 ダークモード
+  </button>
+ </div>
+ <div id="setup">
+  <h3>新規スレッド作成</h3>
+  <div class="input-group">
+   <input
+    type="text"
+    id="thread-title"
+    placeholder="スレッドのタイトル"
+    maxlength="200"
+   >
+   <textarea
+    id="first-res"
+    placeholder="1レス目の本文 (スレ主の書き込み)"
+    maxlength="5000"
+   ></textarea>
+   <button
+    id="create-btn"
+    onclick="createNewThread()"
+   >
+    スレッドを立てる
+   </button>
+  </div>
+  <hr
+   style="
+    margin:20px 0;
+    border:0;
+    border-top:1px solid var(--border-color);
+   "
+  >
+  <div class="thread-list">
+   <div
+    style="
+     display:flex;
+     justify-content:space-between;
+     align-items:center;
+     margin-bottom:8px;
+     gap:10px;
+    "
+   >
+    <h3 style="margin:0;">
+     スレッド一覧
+    </h3>
+    <button
+     id="scan-btn"
+     onclick="scanThreads()"
+     style="
+      padding:4px 10px;
+      font-size:0.8rem;
+     "
+    >
+     一覧更新
+    </button>
+   </div>
+   <div
+    id="scan-status"
+    class="scan-status"
+   >
+    準備中...
+   </div>
+   <div id="active-threads"></div>
+  </div>
+ </div>
+ <div
+  id="board"
+  style="display:none;"
+ >
+  <div
+   class="board-header"
+   id="display-title"
+  ></div>
+  <div
+   id="connection-status"
+  >
+   接続準備中...
+  </div>
+  <div
+   style="
+    font-size:0.8rem;
+    color:var(--sub-text);
+    margin-bottom:10px;
+   "
+  >
+   接続人数:
+   <span id="peer-count">1</span>人
+  </div>
+  <div id="messages"></div>
+  <div class="input-group">
+   <textarea
+    id="msg-input"
+    placeholder="レスを書き込む... (Ctrl + Enterで送信)"
+    maxlength="5000"
+   ></textarea>
+   <button
+    id="send-btn"
+    onclick="sendMessage()"
+   >
+    書き込む
+   </button>
+  </div>
+  <button
+   onclick="returnToThreadList()"
+   style="
+    margin-top:15px;
+    background:#6c757d;
+   "
+  >
+   スレッド一覧へ戻る
+  </button>
+ </div>
+ <script>
+  const MAX_SLOTS = 10;
+  const ID_PREFIX =
+   'p2p-board-th-v3-';
+  const RATE_LIMIT_MS =
+   3000;
+  const POW_DIFFICULTY =
+   2;
+  const MAX_MESSAGE_LENGTH =
+   5000;
+  const MAX_TITLE_LENGTH =
+   200;
+  const MAX_SYNC_LOGS =
+   1000;
+  const THREAD_SCAN_TIMEOUT =
+   1000;
+  const THREAD_SCAN_RETRIES =
+   1;
+  let peer = null;
+  let connections = [];
+  const pendingConnections =
+   new Set();
+  let logs = [];
+  let myId = '';
+  let ownerId = '';
+  let currentTitle = '';
+  let lastPostTimeMap =
+   new Map();
+  let receiveRateMap =
+   new Map();
+  let mutedPeerIds =
+   new Set(
+    JSON.parse(
+     localStorage.getItem(
+      'p2p_muted_ids'
+     ) || '[]'
+    )
+   );
+  let scannerPeer = null;
+  let scanning = false;
+  let leavingBoard = false;
+  window.onload = async () => {
+   initTheme();
+   setupKeyboard();
+   setScanStatus(
+    '検索システムを起動しています...'
+   );
+   await prepareScanner();
+   await scanThreads();
+  };
+  function setupKeyboard() {
+   const input =
+    document.getElementById(
+     'msg-input'
+    );
+   input.addEventListener(
+    'keydown',
+    (e) => {
+     if (
+      e.ctrlKey &&
+      e.key === 'Enter'
+     ) {
+      e.preventDefault();
+      sendMessage();
+     }
+    }
+   );
+  }
+  function initTheme() {
+   const savedTheme =
+    localStorage.getItem(
+     'p2p_theme'
+    ) || 'light';
+   document.documentElement
+    .setAttribute(
+     'data-theme',
+     savedTheme
+    );
+   updateThemeButtonText(
+    savedTheme
+   );
+  }
+  function toggleTheme() {
+   const currentTheme =
+    document.documentElement
+     .getAttribute(
+      'data-theme'
+     );
+   const newTheme =
+    currentTheme === 'dark'
+     ? 'light'
+     : 'dark';
+   document.documentElement
+    .setAttribute(
+     'data-theme',
+     newTheme
+    );
+   localStorage.setItem(
+    'p2p_theme',
+    newTheme
+   );
+   updateThemeButtonText(
+    newTheme
+   );
+  }
+  function updateThemeButtonText(
+   theme
+  ) {
+   const btn =
+    document.getElementById(
+     'theme-btn'
+    );
+   btn.textContent =
+    theme === 'dark'
+     ? '☀️ ライトモード'
+     : '🌙 ダークモード';
+  }
+  function sleep(ms) {
+   return new Promise(
+    resolve =>
+     setTimeout(
+      resolve,
+      ms
+     )
+   );
+  }
+  function setScanStatus(text) {
+   const el =
+    document.getElementById(
+     'scan-status'
+    );
+   if (el) {
+    el.textContent = text;
+   }
+  }
+  function setConnectionStatus(text) {
+   const el =
+    document.getElementById(
+     'connection-status'
+    );
+   if (el) {
+    el.textContent = text;
+   }
+  }
+  async function sha256(str) {
+   const buf =
+    await crypto.subtle.digest(
+     'SHA-256',
+     new TextEncoder().encode(str)
+    );
+   return Array
+    .from(
+     new Uint8Array(buf)
+    )
+    .map(
+     b =>
+      b
+       .toString(16)
+       .padStart(2, '0')
+    )
+    .join('');
+  }
+  async function solvePoW(text) {
+   let nonce = 0;
+   const prefix =
+    '0'.repeat(
+     POW_DIFFICULTY
+    );
+   while (true) {
+    const hash =
+     await sha256(
+      text + nonce
+     );
+    if (
+     hash.startsWith(prefix)
+    ) {
+     return {
+      nonce,
+      hash
+     };
+    }
+    nonce++;
+    if (
+     nonce % 500 === 0
+    ) {
+     await sleep(0);
+    }
+   }
+  }
+  async function verifyPoW(
+   text,
+   nonce
+  ) {
+   if (
+    typeof text !== 'string' ||
+    typeof nonce !== 'number'
+   ) {
+    return false;
+   }
+   if (
+    text.length >
+    MAX_MESSAGE_LENGTH
+   ) {
+    return false;
+   }
+   const hash =
+    await sha256(
+     text + nonce
+    );
+   return hash.startsWith(
+    '0'.repeat(
+     POW_DIFFICULTY
+    )
+   );
+  }
+  function prepareScanner() {
+   return new Promise(
+    (resolve) => {
+     if (
+      scannerPeer &&
+      !scannerPeer.destroyed &&
+      scannerPeer.open
+     ) {
+      resolve();
+      return;
+     }
+     try {
+      if (scannerPeer) {
+       scannerPeer.destroy();
+      }
+     } catch (e) {}
+     scannerPeer =
+      new Peer();
+     let finished = false;
+     const finish = () => {
+      if (finished) {
+       return;
+      }
+      finished = true;
+      resolve();
+     };
+     scannerPeer.on(
+      'open',
+      () => {
+       finish();
+      }
+     );
+     scannerPeer.on(
+      'error',
+      (err) => {
+       finish();
+      }
+     );
+     scannerPeer.on(
+      'close',
+      () => {
+       scannerPeer =
+        null;
+      }
+     );
+    }
+   );
+  }
+  async function scanThreads() {
+   if (scanning) {
+    return;
+   }
+   scanning = true;
+   const scanBtn =
+    document.getElementById(
+     'scan-btn'
+    );
+   const listDiv =
+    document.getElementById(
+     'active-threads'
+    );
+   scanBtn.disabled = true;
+   listDiv.innerHTML = '';
+   setScanStatus(
+    '検索用Peerを準備しています...'
+   );
+   await prepareScanner();
+   if (
+    !scannerPeer ||
+    scannerPeer.destroyed
+   ) {
+    await sleep(300);
+    await prepareScanner();
+   }
+   setScanStatus(
+    'スレッドを一斉検索中...'
+   );
+   const scanPromises = [];
+   for (
+    let i = 1;
+    i <= MAX_SLOTS;
+    i++
+   ) {
+    const targetPeerId =
+     ID_PREFIX + i;
+    if (
+     peer &&
+     !peer.destroyed &&
+     myId === targetPeerId
+    ) {
+     scanPromises.push(
+      Promise.resolve({
+       slotNum: i,
+       result: {
+        active: true,
+        title:
+         currentTitle ||
+         '無題のスレッド',
+        resCount:
+         logs.length
+       }
+      })
+     );
+     continue;
+    }
+    scanPromises.push(
+     checkThreadStatusWithRetry(
+      targetPeerId,
+      i
+     ).then(result => ({
+      slotNum: i,
+      result: result
+     }))
+    );
+   }
+   const scanResults =
+    await Promise.all(scanPromises);
+   let foundCount = 0;
+   scanResults
+    .sort((a, b) => a.slotNum - b.slotNum)
+    .forEach(({ slotNum, result }) => {
+     if (result.active) {
+      foundCount++;
+      addThreadToList(
+       slotNum,
+       result
+      );
+     }
+    });
+   if (
+    foundCount === 0
+   ) {
+    setScanStatus(
+     '現在開かれているスレッドはありません。'
+    );
+   } else {
+    setScanStatus(
+     `${foundCount} 件のスレッドが見つかりました`
+    );
+   }
+   scanBtn.disabled = false;
+   scanning = false;
+  }
+  async function checkThreadStatusWithRetry(
+   targetPeerId,
+   slotNum
+  ) {
+   for (
+    let attempt = 0;
+    attempt < THREAD_SCAN_RETRIES;
+    attempt++
+   ) {
+    if (
+     attempt > 0
+    ) {
+     await sleep(200);
+    }
+    const result =
+     await checkThreadStatus(
+      targetPeerId
+     );
+    if (
+     result.active
+    ) {
+     return result;
+    }
+   }
+   return {
+    active: false
+   };
+  }
+  function checkThreadStatus(
+   targetPeerId
+  ) {
+   return new Promise(
+    async (resolve) => {
+     if (
+      !scannerPeer ||
+      scannerPeer.destroyed
+     ) {
+      await prepareScanner();
+     }
+     if (
+      !scannerPeer ||
+      scannerPeer.destroyed
+     ) {
+      resolve({
+       active: false
+      });
+      return;
+     }
+     let finished = false;
+     let conn = null;
+     let timer = null;
+     const finish = (
+      result
+     ) => {
+      if (finished) {
+       return;
+      }
+      finished = true;
+      if (timer) {
+       clearTimeout(timer);
+      }
+      try {
+       if (
+        conn &&
+        !conn.destroyed
+       ) {
+        conn.close();
+       }
+      } catch (e) {}
+      resolve(result);
+     };
+     timer =
+      setTimeout(
+       () => {
+        finish({
+         active: false
+        });
+       },
+       THREAD_SCAN_TIMEOUT
+      );
+     try {
+      conn =
+       scannerPeer.connect(
+        targetPeerId,
+        {
+         reliable: true
+        }
+       );
+      conn.on(
+       'open',
+       () => {
+        try {
+         conn.send({
+          type: 'get-info',
+          probe: true
+         });
+        } catch (e) {
+         finish({
+          active: false
+         });
+        }
+       }
+      );
+      conn.on(
+       'data',
+       (data) => {
+        if (
+         !data ||
+         data.type !==
+          'info-response'
+        ) {
+         return;
+        }
+        finish({
+         active: true,
+         title:
+          typeof data.title ===
+          'string'
+           ? data.title
+           : '無題のスレッド',
+         resCount:
+          Number.isFinite(
+           data.resCount
+          )
+           ? data.resCount
+           : 0
+        });
+       }
+      );
+      conn.on(
+       'error',
+       (err) => {
+        finish({
+         active: false
+        });
+       }
+      );
+      conn.on(
+       'close',
+       () => {
+        finish({
+         active: false
+        });
+       }
+      );
+     } catch (e) {
+      finish({
+       active: false
+      });
+     }
+    }
+   );
+  }
+  function addThreadToList(
+   slotNum,
+   result
+  ) {
+   const listDiv =
+    document.getElementById(
+     'active-threads'
+    );
+   const item =
+    document.createElement(
+     'div'
+    );
+   item.className =
+    'thread-item';
+   const infoDiv =
+    document.createElement(
+     'div'
+    );
+   const titleDiv =
+    document.createElement(
+     'div'
+    );
+   titleDiv.className =
+    'title';
+   titleDiv.textContent =
+    result.title ||
+    '無題のスレッド';
+   const countSmall =
+    document.createElement(
+     'small'
+    );
+   countSmall.style.color =
+    'var(--sub-text)';
+   countSmall.textContent =
+    `レス数: ${result.resCount || 0}`;
+   infoDiv.appendChild(
+    titleDiv
+   );
+   infoDiv.appendChild(
+    countSmall
+   );
+   const joinBtn =
+    document.createElement(
+     'button'
+    );
+   joinBtn.textContent =
+    '開く';
+   joinBtn.onclick = () => {
+    joinThread(
+     slotNum,
+     result.title ||
+      '無題のスレッド'
+    );
+   };
+   item.appendChild(
+    infoDiv
+   );
+   item.appendChild(
+    joinBtn
+   );
+   listDiv.appendChild(
+    item
+   );
+  }
+  async function createNewThread() {
+   const titleInput =
+    document.getElementById(
+     'thread-title'
+    );
+   const firstResInput =
+    document.getElementById(
+     'first-res'
+    );
+   const createBtn =
+    document.getElementById(
+     'create-btn'
+    );
+   const title =
+    titleInput.value.trim();
+   const firstResText =
+    firstResInput.value.trim();
+   if (!title) {
+    alert(
+     'スレッドのタイトルを入力してください'
+    );
+    return;
+   }
+   if (
+    title.length >
+    MAX_TITLE_LENGTH
+   ) {
+    alert(
+     `タイトルは${MAX_TITLE_LENGTH}文字以内で入力してください。`
+    );
+    return;
+   }
+   if (!firstResText) {
+    alert(
+     '1レス目の本文を入力してください'
+    );
+    return;
+   }
+   if (
+    firstResText.length >
+    MAX_MESSAGE_LENGTH
+   ) {
+    alert(
+     `本文は${MAX_MESSAGE_LENGTH}文字以内で入力してください。`
+    );
+    return;
+   }
+   createBtn.disabled = true;
+   try {
+    setScanStatus(
+     'スパム防止計算(PoW)を実行中...'
+    );
+    const pow =
+     await solvePoW(
+      firstResText
+     );
+    setScanStatus(
+     '空きスレッド枠を検索中...'
+    );
+    await prepareScanner();
+    let freeSlot = null;
+    for (
+     let i = 1;
+     i <= MAX_SLOTS;
+     i++
+    ) {
+     const targetPeerId =
+      ID_PREFIX + i;
+     if (
+      peer &&
+      !peer.destroyed &&
+      myId === targetPeerId
+     ) {
+      continue;
+     }
+     const result =
+      await checkThreadStatusWithRetry(
+       targetPeerId,
+       i
+      );
+     if (
+      !result.active
+     ) {
+      freeSlot = i;
+      break;
+     }
+    }
+    if (
+     freeSlot === null
+    ) {
+     alert(
+      'スレッド作成上限に達しています。時間を置いてからお試しください。'
+     );
+     createBtn.disabled = false;
+     return;
+    }
+    const targetPeerId =
+     ID_PREFIX + freeSlot;
+    currentTitle =
+     title;
+    myId =
+     targetPeerId;
+    ownerId =
+     targetPeerId;
+    logs = [];
+    const now = Date.now();
+    const firstMsg = {
+     id:
+      targetPeerId +
+      '-1-' +
+      crypto.randomUUID(),
+     senderId:
+      targetPeerId,
+     text:
+      firstResText,
+     powNonce:
+      pow.nonce,
+     timestamp:
+      now,
+     isFirstRes:
+      true,
+     time:
+      new Date(now)
+       .toLocaleTimeString(
+        [],
+        {
+         hour: '2-digit',
+         minute: '2-digit'
+        }
+       )
+    };
+    logs.push(
+     firstMsg
+    );
+    setScanStatus(
+     `スレッド ${freeSlot} 番を作成しています...`
+    );
+    if (
+     peer &&
+     !peer.destroyed
+    ) {
+     try {
+      peer.destroy();
+     } catch (e) {}
+    }
+    peer =
+     new Peer(
+      targetPeerId
+     );
+    peer.on(
+     'open',
+     (id) => {
+      myId = id;
+      ownerId = id;
+      setConnectionStatus(
+       'スレッドをホストしています'
+      );
+      initBoard();
+      titleInput.value = '';
+      firstResInput.value = '';
+      peer.on(
+       'connection',
+       (conn) => {
+        setupIncomingConnection(
+         conn
+        );
+       }
+      );
+      createBtn.disabled =
+       false;
+     }
+    );
+    peer.on(
+     'error',
+     (err) => {
+      console.error(
+       'Host Peer error:',
+       err
+      );
+      if (
+       err &&
+       err.type ===
+        'unavailable-id'
+      ) {
+       alert(
+        'このスレッド枠はすでに使用されています。もう一度作成してください。'
+       );
+      } else {
+       alert(
+        '接続エラーが発生しました: ' +
+        (err?.type || 'unknown')
+       );
+      }
+      createBtn.disabled =
+       false;
+     }
+    );
+   } catch (e) {
+    console.error(e);
+    alert(
+     'スレッド作成中にエラーが発生しました。'
+    );
+    createBtn.disabled =
+     false;
+   }
+  }
+  function joinThread(
+   slotNum,
+   title
+  ) {
+   cleanupCurrentPeer();
+   currentTitle =
+    title ||
+    '無題のスレッド';
+   const targetPeerId =
+    ID_PREFIX + slotNum;
+   ownerId =
+    targetPeerId;
+   logs = [];
+   connections = [];
+   pendingConnections.clear();
+   leavingBoard = false;
+   setConnectionStatus(
+    '接続しています...'
+   );
+   peer =
+    new Peer();
+   peer.on(
+    'open',
+    (id) => {
+     myId =
+      id;
+     initBoard();
+     setConnectionStatus(
+      'スレッドへ接続しています...'
+     );
+     connectToPeer(
+      targetPeerId
+     );
+     peer.on(
+      'connection',
+      (conn) => {
+       setupIncomingConnection(
+        conn
+       );
+      }
+     );
+    }
+   );
+   peer.on(
+    'error',
+    (err) => {
+     if (
+      err?.type ===
+      'peer-unavailable'
+     ) {
+      setConnectionStatus(
+       'スレッドが閉じられた可能性があります。'
+      );
+     } else {
+      setConnectionStatus(
+       '接続エラー: ' +
+       (err?.type || 'unknown')
+      );
+     }
+    }
+   );
+  }
+  function hasConnection(
+   peerId
+  ) {
+   return connections.some(
+    c =>
+     c &&
+     c.peer === peerId &&
+     c.open
+   );
+  }
+  function connectToPeer(
+   peerId
+  ) {
+   if (!peer || peer.destroyed) {
+    return null;
+   }
+   if (
+    !peerId ||
+    peerId === myId
+   ) {
+    return null;
+   }
+   if (
+    hasConnection(peerId)
+   ) {
+    return null;
+   }
+   if (
+    pendingConnections.has(
+     peerId
+    )
+   ) {
+    return null;
+   }
+   pendingConnections.add(
+    peerId
+   );
+   let conn;
+   try {
+    conn =
+     peer.connect(
+      peerId,
+      {
+       reliable: true
+      }
+     );
+   } catch (e) {
+    pendingConnections.delete(
+     peerId
+    );
+    return null;
+   }
+   setupOutgoingConnection(
+    conn
+   );
+   return conn;
+  }
+  function setupOutgoingConnection(
+   conn
+  ) {
+   if (!conn) {
+    return;
+   }
+   let registered = false;
+   conn.on(
+    'open',
+    () => {
+     pendingConnections.delete(
+      conn.peer
+     );
+     if (
+      connections.some(
+       c =>
+        c.peer ===
+        conn.peer
+      )
+     ) {
+      try {
+       conn.close();
+      } catch (e) {}
+      return;
+     }
+     connections.push(
+      conn
+     );
+     registered = true;
+     updatePeerCount();
+     sendSyncInit(
+      conn
+     );
+     updateConnectionStatus();
+    }
+   );
+   conn.on(
+    'data',
+    (data) => {
+     handleData(
+      data,
+      conn
+     );
+    }
+   );
+   conn.on(
+    'close',
+    () => {
+     pendingConnections.delete(
+      conn.peer
+     );
+     removeConnection(
+      conn.peer
+     );
+    }
+   );
+   conn.on(
+    'error',
+    (err) => {}
+   );
+  }
+  function setupIncomingConnection(
+   conn
+  ) {
+   if (!conn) {
+    return;
+   }
+   let registered = false;
+   conn.on(
+    'data',
+    async (data) => {
+     if (!data) {
+      return;
+     }
+     if (
+      data.type ===
+       'get-info' &&
+      data.probe === true
+     ) {
+      try {
+       conn.send({
+        type:
+         'info-response',
+        title:
+         currentTitle,
+        resCount:
+         logs.length
+       });
+      } catch (e) {}
+      setTimeout(
+       () => {
+        try {
+         conn.close();
+        } catch (e) {}
+       },
+       30
+      );
+      return;
+     }
+     if (!registered) {
+      if (
+       connections.some(
+        c =>
+         c.peer ===
+         conn.peer
+       )
+      ) {
+       try {
+        conn.close();
+       } catch (e) {}
+       return;
+      }
+      connections.push(
+       conn
+      );
+      registered = true;
+      updatePeerCount();
+      updateConnectionStatus();
+      sendSyncInit(conn);
+     }
+     await handleData(
+      data,
+      conn
+     );
+    }
+   );
+   conn.on(
+    'close',
+    () => {
+     pendingConnections.delete(
+      conn.peer
+     );
+     removeConnection(
+      conn.peer
+     );
+    }
+   );
+   conn.on(
+    'error',
+    (err) => {}
+   );
+  }
+  function removeConnection(
+   peerId
+  ) {
+   const before =
+    connections.length;
+   connections =
+    connections.filter(
+     c =>
+      c &&
+      c.peer !== peerId
+    );
+   if (
+    connections.length !==
+    before
+   ) {
+    updatePeerCount();
+    updateConnectionStatus();
+   }
+  }
+  function sendSyncInit(
+   conn
+  ) {
+   if (
+    !conn ||
+    !conn.open
+   ) {
+    return;
+   }
+   try {
+    conn.send({
+     type:
+      'sync-init',
+     logs:
+      getSyncLogs(),
+     peers:
+      connections
+       .filter(
+        c =>
+         c &&
+         c.open
+       )
+       .map(
+        c =>
+         c.peer
+       ),
+     title:
+      currentTitle,
+     ownerId: ownerId
+    });
+   } catch (e) {}
+  }
+  function getSyncLogs() {
+   const first = logs.find(m =>
+    m.isFirstRes === true && m.senderId === ownerId &&
+    m.id.startsWith(ownerId + '-1-'));
+   const recent = logs.slice(-MAX_SYNC_LOGS);
+   if (first && !recent.some(m => m.id === first.id)) {
+    return [first, ...recent.slice(-(MAX_SYNC_LOGS - 1))];
+   }
+   return recent;
+  }
+  function limitLogsPreservingFirst() {
+   if (logs.length <= MAX_SYNC_LOGS) return;
+   const first = logs.find(m =>
+    m.isFirstRes === true && m.senderId === ownerId &&
+    m.id.startsWith(ownerId + '-1-'));
+   if (!first) {
+    logs = logs.slice(-MAX_SYNC_LOGS);
+    return;
+   }
+   const rest = logs.filter(m => m.id !== first.id);
+   logs = [first, ...rest.slice(-(MAX_SYNC_LOGS - 1))];
+   sortLogs();
+  }
+  function sortLogs() {
+   logs.sort((a, b) => {
+    const isAFirst = a.isFirstRes === true && a.senderId === ownerId && a.id.startsWith(ownerId + '-1-');
+    const isBFirst = b.isFirstRes === true && b.senderId === ownerId && b.id.startsWith(ownerId + '-1-');
+    if (isAFirst && !isBFirst) return -1;
+    if (!isAFirst && isBFirst) return 1;
+    return a.timestamp - b.timestamp;
+   });
+  }
+  async function handleData(
+   data,
+   conn
+  ) {
+   if (
+    !data ||
+    !data.type
+   ) {
+    return;
+   }
+   if (
+    data.type ===
+    'get-info'
+   ) {
+    try {
+     conn.send({
+      type:
+       'info-response',
+      title:
+       currentTitle,
+      resCount:
+       logs.length
+     });
+    } catch (e) {}
+    return;
+   }
+   if (
+    data.type ===
+    'sync-init'
+   ) {
+    if (data.ownerId && !ownerId) {
+     ownerId = data.ownerId;
+    }
+    if (
+     typeof data.title ===
+     'string' &&
+     data.title.length <=
+     MAX_TITLE_LENGTH
+    ) {
+     if (
+      !currentTitle
+     ) {
+      currentTitle =
+       data.title;
+      const titleEl =
+       document.getElementById(
+        'display-title'
+       );
+      if (titleEl) {
+       titleEl.textContent =
+        currentTitle;
+      }
+     }
+    }
+    let hasNew = false;
+    if (
+     Array.isArray(data.logs)
+    ) {
+     const incomingLogs =
+      data.logs.slice(
+       -MAX_SYNC_LOGS
+      );
+     for (
+      let idx = 0;
+      idx < incomingLogs.length;
+      idx++
+     ) {
+      const msg = incomingLogs[idx];
+      if (
+       !isValidMessage(
+        msg
+       )
+      ) {
+       continue;
+      }
+      if (
+       mutedPeerIds.has(
+        msg.senderId
+       )
+      ) {
+       continue;
+      }
+      if (msg.isFirstRes === true &&
+        !(msg.senderId === ownerId &&
+         msg.id.startsWith(ownerId + '-1-'))) {
+       continue;
+      }
+      const valid =
+       await verifyPoW(
+        msg.text,
+        msg.powNonce
+       );
+      if (!valid) {
+       continue;
+      }
+      if (
+       !logs.some(
+        l =>
+         l.id ===
+         msg.id
+       )
+      ) {
+       logs.push(
+        msg
+       );
+       hasNew = true;
+      }
+     }
+    }
+    if (hasNew) {
+     sortLogs();
+     if (
+      logs.length >
+      MAX_SYNC_LOGS
+     ) {
+      limitLogsPreservingFirst();
+     }
+     reRenderAllRes();
+    }
+    if (
+     Array.isArray(
+      data.peers
+     )
+    ) {
+     for (
+      const peerId of
+       data.peers
+     ) {
+      if (
+       typeof peerId !==
+       'string'
+      ) {
+       continue;
+      }
+      if (
+       peerId ===
+       myId
+      ) {
+       continue;
+      }
+      connectToPeer(
+       peerId
+      );
+     }
+    }
+    updateConnectionStatus();
+    return;
+   }
+   if (
+    data.type ===
+    'chat'
+   ) {
+    const msg =
+     data.msg;
+    if (
+     !isValidMessage(
+      msg
+     )
+    ) {
+     return;
+    }
+    if (
+     mutedPeerIds.has(
+      msg.senderId
+     )
+    ) {
+     return;
+    }
+    const now = Date.now();
+    const lastReceived =
+     receiveRateMap.get(
+      msg.senderId
+     ) || 0;
+    if (
+     now -
+     lastReceived <
+     RATE_LIMIT_MS
+    ) {
+     return;
+    }
+    const validPoW =
+     await verifyPoW(
+      msg.text,
+      msg.powNonce
+     );
+    if (!validPoW) {
+     return;
+    }
+    receiveRateMap.set(
+     msg.senderId,
+     now
+    );
+    if (
+     logs.some(
+      l =>
+       l.id ===
+       msg.id
+     )
+    ) {
+     return;
+    }
+    logs.push(
+     msg
+    );
+    sortLogs();
+    if (
+     logs.length >
+     MAX_SYNC_LOGS
+    ) {
+     limitLogsPreservingFirst();
+    }
+    reRenderAllRes();
+    broadcast(
+     data,
+     conn
+      ? conn.peer
+      : null
+    );
+    return;
+   }
+  }
+  function isValidMessage(
+   msg
+  ) {
+   if (
+    !msg ||
+    typeof msg !==
+     'object'
+   ) {
+    return false;
+   }
+   if (
+    typeof msg.id !==
+     'string'
+   ) {
+    return false;
+   }
+   if (
+    typeof msg.senderId !==
+     'string'
+   ) {
+    return false;
+   }
+   if (
+    typeof msg.text !==
+     'string'
+   ) {
+    return false;
+   }
+   if (
+    msg.text.length >
+    MAX_MESSAGE_LENGTH
+   ) {
+    return false;
+   }
+   if (
+    typeof msg.powNonce !==
+     'number'
+   ) {
+    return false;
+   }
+   if (
+    !Number.isFinite(
+     msg.timestamp
+    )
+   ) {
+    return false;
+   }
+   return true;
+  }
+  function broadcast(
+   data,
+   excludePeerId = null
+  ) {
+   connections.forEach(
+    (conn) => {
+     if (
+      !conn ||
+      !conn.open
+     ) {
+      return;
+     }
+     if (
+      conn.peer ===
+      excludePeerId
+     ) {
+      return;
+     }
+     try {
+      conn.send(
+       data
+      );
+     } catch (e) {}
+    }
+   );
+  }
+  async function sendMessage() {
+   const input =
+    document.getElementById(
+     'msg-input'
+    );
+   const sendBtn =
+    document.getElementById(
+     'send-btn'
+    );
+   const text =
+    input.value.trim();
+   if (!text) {
+    return;
+   }
+   if (
+    text.length >
+    MAX_MESSAGE_LENGTH
+   ) {
+    alert(
+     `本文は${MAX_MESSAGE_LENGTH}文字以内で入力してください。`
+    );
+    return;
+   }
+   const now = Date.now();
+   const lastTime =
+    lastPostTimeMap.get(
+     myId
+    ) || 0;
+   if (
+    now -
+    lastTime <
+    RATE_LIMIT_MS
+   ) {
+    alert(
+     `連投防止：前回の書き込みから ${RATE_LIMIT_MS / 1000} 秒以上空けて投稿してください。`
+    );
+    return;
+   }
+   sendBtn.disabled = true;
+   sendBtn.textContent =
+    '計算中...';
+   try {
+    const pow =
+     await solvePoW(
+      text
+     );
+    const isValid =
+     await verifyPoW(
+      text,
+      pow.nonce
+     );
+    if (!isValid) {
+     alert(
+      'PoW計算エラーが発生しました。'
+     );
+     return;
+    }
+    lastPostTimeMap.set(
+     myId,
+     now
+    );
+    const msgObj = {
+     id:
+      myId +
+      '-' +
+      now +
+      '-' +
+      crypto.randomUUID(),
+     senderId:
+      myId,
+     text:
+      text,
+     powNonce:
+      pow.nonce,
+     timestamp:
+      now,
+     time:
+      new Date(now)
+       .toLocaleTimeString(
+        [],
+        {
+         hour: '2-digit',
+         minute: '2-digit'
+        }
+       )
+    };
+    logs.push(
+     msgObj
+    );
+    sortLogs();
+    reRenderAllRes();
+    broadcast({
+     type:
+      'chat',
+     msg:
+      msgObj
+    });
+    input.value = '';
+   } catch (e) {
+    alert(
+     '書き込み中にエラーが発生しました。'
+    );
+   } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent =
+     '書き込む';
+   }
+  }
+  function toggleMute(
+   senderId
+  ) {
+   if (
+    confirm(
+     `ID: ${senderId.slice(-4)} をブロックしますか？\nこのユーザーの書き込みは非表示になります。`
+    )
+   ) {
+    mutedPeerIds.add(
+     senderId
+    );
+    localStorage.setItem(
+     'p2p_muted_ids',
+     JSON.stringify(
+      [...mutedPeerIds]
+     )
+    );
+    reRenderAllRes();
+   }
+  }
+  function reRenderAllRes() {
+   const msgContainer =
+    document.getElementById(
+     'messages'
+    );
+   msgContainer.innerHTML = '';
+   logs.forEach(
+    (msg, index) => {
+     renderRes(
+      msg,
+      index + 1
+     );
+    }
+   );
+   const msgBox =
+    document.getElementById(
+     'messages'
+    );
+   msgBox.scrollTop =
+    msgBox.scrollHeight;
+  }
+  function renderRes(
+   msgObj,
+   indexNum
+  ) {
+   if (
+    mutedPeerIds.has(
+     msgObj.senderId
+    )
+   ) {
+    return;
+   }
+   const isOwner =
+    (msgObj.isFirstRes === true && msgObj.senderId === ownerId) ||
+    (ownerId && msgObj.senderId === ownerId);
+   const div =
+    document.createElement(
+     'div'
+    );
+   div.className =
+    `res ${isOwner ? 'owner' : ''}`;
+   div.setAttribute(
+    'data-sender',
+    msgObj.senderId
+   );
+   const headerDiv =
+    document.createElement(
+     'div'
+    );
+   headerDiv.className =
+    'res-header';
+   const authorName =
+    isOwner
+     ? '主'
+     : '名無しさん';
+   const isSelf =
+    msgObj.senderId ===
+    myId;
+   const infoSpan =
+    document.createElement(
+     'span'
+    );
+   const numSpan =
+    document.createElement(
+     'span'
+    );
+   numSpan.className =
+    'res-num';
+   numSpan.textContent =
+    indexNum;
+   const separator =
+    document.createTextNode(
+     ' ：'
+    );
+   const authorSpan =
+    document.createElement(
+     'span'
+    );
+   authorSpan.className =
+    'res-author';
+   authorSpan.textContent =
+    authorName;
+   const idText =
+    document.createTextNode(
+     ` (ID:${String(msgObj.senderId).slice(-4)})：${msgObj.time || ''}`
+    );
+   infoSpan.appendChild(
+    numSpan
+   );
+   infoSpan.appendChild(
+    separator
+   );
+   infoSpan.appendChild(
+    authorSpan
+   );
+   infoSpan.appendChild(
+    idText
+   );
+   headerDiv.appendChild(
+    infoSpan
+   );
+   if (!isSelf) {
+    const muteBtn =
+     document.createElement(
+      'button'
+     );
+    muteBtn.className =
+     'mute-btn';
+    muteBtn.textContent =
+     'ブロック';
+    muteBtn.onclick =
+     () =>
+      toggleMute(
+       msgObj.senderId
+      );
+    headerDiv.appendChild(
+     muteBtn
+    );
+   }
+   const bodyDiv =
+    document.createElement(
+     'div'
+    );
+   bodyDiv.className =
+    'res-body';
+   bodyDiv.textContent =
+    msgObj.text;
+   div.appendChild(
+    headerDiv
+   );
+   div.appendChild(
+    bodyDiv
+   );
+   document
+    .getElementById(
+     'messages'
+    )
+    .appendChild(
+     div
+    );
+  }
+  function initBoard() {
+   document.getElementById(
+    'setup'
+   ).style.display =
+    'none';
+   document.getElementById(
+    'board'
+   ).style.display =
+    'block';
+   document.getElementById(
+    'display-title'
+   ).textContent =
+    currentTitle;
+   updatePeerCount();
+   updateConnectionStatus();
+   reRenderAllRes();
+  }
+  function updatePeerCount() {
+   const el =
+    document.getElementById(
+     'peer-count'
+    );
+   if (!el) {
+    return;
+   }
+   el.textContent =
+    connections.length + 1;
+  }
+  function updateConnectionStatus() {
+   if (
+    !peer ||
+    peer.destroyed
+   ) {
+    setConnectionStatus(
+     '未接続'
+    );
+    return;
+   }
+   if (
+    ownerId === myId
+   ) {
+    setConnectionStatus(
+     '🟢 スレッドをホスト中'
+    );
+    return;
+   }
+   if (
+    connections.length === 0
+   ) {
+    setConnectionStatus(
+     '🟡 接続相手を探しています...'
+    );
+    return;
+   }
+   setConnectionStatus(
+    `🟢 P2P接続中 (${connections.length}接続)`
+   );
+  }
+  function cleanupCurrentPeer() {
+   pendingConnections.clear();
+   connections.forEach(
+    conn => {
+     try {
+      if (
+       conn &&
+       !conn.destroyed
+      ) {
+       conn.close();
+      }
+     } catch (e) {}
+    }
+   );
+   connections = [];
+   if (
+    peer &&
+    !peer.destroyed
+   ) {
+    try {
+     peer.destroy();
+    } catch (e) {}
+   }
+   peer = null;
+  }
+  function returnToThreadList() {
+   leavingBoard = true;
+   cleanupCurrentPeer();
+   currentTitle = '';
+   ownerId = '';
+   myId = '';
+   logs = [];
+   document.getElementById(
+    'board'
+   ).style.display =
+    'none';
+   document.getElementById(
+    'setup'
+   ).style.display =
+    'block';
+   document.getElementById(
+    'messages'
+   ).innerHTML = '';
+   setScanStatus(
+    '一覧を更新しています...'
+   );
+   setTimeout(
+    () => {
+     scanThreads();
+    },
+    500
+   );
+  }
+ </script>
+</body>
+</html>
